@@ -1,97 +1,50 @@
 import tkinter as tk
-from tkinter import messagebox
 import requests
-from PIL import Image, ImageTk
-from io import BytesIO
 
 def get_weather():
-    city = city_entry.get().strip() + ",IN"
-
-    api_key = "0f5a49aa0f0c643c53fab0787fc8d493" 
+    city = city_entry.get().strip()
 
     if city == "":
-        messagebox.showwarning("Input Error", "Please enter a city name")
+        result_label.config(text="Please enter a city name")
         return
 
-    url = f"https://api.openweathermap.org/data/2.5/weather?q={city}&appid={api_key}&units=metric"
-    response = requests.get(url)
-    data = response.json()
+    geo_url = f"https://geocoding-api.open-meteo.com/v1/search?name={city}&count=1"
+    geo_data = requests.get(geo_url).json()
 
-    if data["cod"] == 200:
-        temp = data["main"]["temp"]
-        weather = data["weather"][0]["description"].capitalize()
-        icon_code = data["weather"][0]["icon"]
+    if "results" not in geo_data:
+        result_label.config(text="City not found")
+        return
 
-        # Weather icon URL
-        icon_url = f"http://openweathermap.org/img/wn/{icon_code}@2x.png"
-        icon_response = requests.get(icon_url)
-        icon_img = Image.open(BytesIO(icon_response.content))
-        icon_photo = ImageTk.PhotoImage(icon_img)
+    lat = geo_data["results"][0]["latitude"]
+    lon = geo_data["results"][0]["longitude"]
 
-        icon_label.config(image=icon_photo)
-        icon_label.image = icon_photo
+    weather_url = (
+        f"https://api.open-meteo.com/v1/forecast?"
+        f"latitude={lat}&longitude={lon}&current_weather=true"
+    )
+    weather_data = requests.get(weather_url).json()
 
-        result_label.config(
-            text=f"{city}\n🌡 {temp} °C\n☁ {weather}"
-        )
-    else:
-        messagebox.showerror("Error", "City not found!")
+    temp = weather_data["current_weather"]["temperature"]
+    wind = weather_data["current_weather"]["windspeed"]
 
-# ---------------- UI Design ----------------
+    result_label.config(
+        text=f"{city}\n🌡 {temp} °C\n💨 Wind: {wind} km/h"
+    )
+
+# ---------------- UI ----------------
 root = tk.Tk()
 root.title("Weather App")
-root.geometry("350x420")
-root.configure(bg="#1e1e2f")
-root.resizable(False, False)
+root.geometry("300x300")
 
-title = tk.Label(
-    root,
-    text="🌦 Weather Checker",
-    font=("Helvetica", 18, "bold"),
-    bg="#1e1e2f",
-    fg="white"
-)
-title.pack(pady=15)
+tk.Label(root, text="Enter City").pack(pady=10)
 
-city_entry = tk.Entry(
-    root,
-    font=("Helvetica", 14),
-    justify="center"
-)
-city_entry.pack(pady=10)
-city_entry.insert(0, "Enter city name")
+city_entry = tk.Entry(root, font=("Helvetica", 14))
+city_entry.pack(pady=5)
 
-check_btn = tk.Button(
-    root,
-    text="Check Weather",
-    font=("Helvetica", 12, "bold"),
-    bg="#4CAF50",
-    fg="white",
-    padx=20,
-    pady=5,
-    command=get_weather
-)
-check_btn.pack(pady=15)
+tk.Button(root, text="Check Weather", command=get_weather).pack(pady=10)
 
-icon_label = tk.Label(root, bg="#1e1e2f")
-icon_label.pack(pady=10)
-
-result_label = tk.Label(
-    root,
-    text="",
-    font=("Helvetica", 14),
-    bg="#1e1e2f",
-    fg="white"
-)
+result_label = tk.Label(root, text="", font=("Helvetica", 12))
 result_label.pack(pady=10)
 
-footer = tk.Label(
-    root,
-    text="Simple Python Weather App",
-    font=("Helvetica", 9),
-    bg="#1e1e2f",
-    fg="gray"
-)
-footer.pack(side="bottom", pady=10)
-
 root.mainloop()
+
